@@ -16,7 +16,7 @@ const CONFIG = {
         END: '17:05',
         TIMEZONE: 'America/Argentina/Buenos_Aires'
     },
-    SUMMARY_TICKERS: ['AAPL', 'AMZN', 'SPY', 'NVDA', 'KO', 'MSFT']
+    SUMMARY_TICKERS: ['AAPL', 'AMZN', 'NVDA', 'KO', 'MSFT']
 };
 
 let marketData = {
@@ -24,7 +24,8 @@ let marketData = {
     cedears: [],
     usaStocks: [],
     usaAdrs: [],
-    calculatedResults: []
+    calculatedResults: [],
+    globalAvgCCL: null
 };
 
 let lastUpdateTime = null;
@@ -308,17 +309,33 @@ function renderOpportunities() {
 
 function updateCCLList(elementId, items, statusClass) {
     const container = document.getElementById(elementId);
-    container.innerHTML = '';
+    if (!container) return;
     
-    items.forEach(item => {
-        const div = document.createElement('div');
-        div.className = `ccl-item ${statusClass}`;
-        div.innerHTML = `
-            <span class="ticker">${item.ticker}</span>
-            <span class="ccl-value">$${item.ccl.toFixed(2)}</span>
-        `;
-        container.appendChild(div);
-    });
+    container.innerHTML = `
+        <table class="top-table">
+            <thead>
+                <tr>
+                    <th>Ticker</th>
+                    <th class="text-right">CCL</th>
+                    <th class="text-right">Gap (Avg)</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${items.map(item => {
+                    const gap = marketData.globalAvgCCL ? ((item.ccl / marketData.globalAvgCCL) - 1) * 100 : 0;
+                    const gapClass = gap > 0 ? 'bad-red' : 'good-green';
+                    const gapSign = gap > 0 ? '+' : '';
+                    return `
+                        <tr class="top-row">
+                            <td class="ticker-cell">${item.ticker}</td>
+                            <td class="ccl-cell text-right">$${item.ccl.toFixed(2)}</td>
+                            <td class="gap-cell text-right ${gapClass}">${gapSign}${gap.toFixed(2)}%</td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+    `;
 }
 
 function renderTable(searchTerm = '') {
@@ -362,7 +379,7 @@ function renderTable(searchTerm = '') {
 
 function updateLastUpdateTime(msg) {
     const now = new Date();
-    const timeStr = msg || now.toLocaleTimeString();
+    const timeStr = msg || now.toLocaleString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false });
     document.getElementById('last-update').textContent = timeStr;
     lastUpdateTime = now;
 }
@@ -442,14 +459,25 @@ function renderSummaryTable() {
     const avgCedearEl = document.getElementById('avg-cedear');
     const avgApiEl = document.getElementById('avg-api');
 
+    const avgCedear = countCedear > 0 ? (totalCedear / countCedear) : 0;
+    const avgApi = countApi > 0 ? (totalApi / countApi) : 0;
+
+    if (countCedear > 0 && countApi > 0) {
+        marketData.globalAvgCCL = (avgCedear + avgApi) / 2;
+    } else if (countCedear > 0) {
+        marketData.globalAvgCCL = avgCedear;
+    } else if (countApi > 0) {
+        marketData.globalAvgCCL = avgApi;
+    }
+
     if (countCedear > 0) {
-        avgCedearEl.textContent = '$' + (totalCedear / countCedear).toFixed(2);
+        avgCedearEl.textContent = '$' + avgCedear.toFixed(2);
     } else {
         avgCedearEl.textContent = '--';
     }
 
     if (countApi > 0) {
-        avgApiEl.textContent = '$' + (totalApi / countApi).toFixed(2);
+        avgApiEl.textContent = '$' + avgApi.toFixed(2);
     } else {
         avgApiEl.textContent = '--';
     }
@@ -469,28 +497,54 @@ function renderApiOpportunities() {
     
     if (!lowestContainer || !highestContainer) return;
 
-    lowestContainer.innerHTML = '';
-    highestContainer.innerHTML = '';
+    lowestContainer.innerHTML = `
+        <table class="top-table">
+            <thead>
+                <tr>
+                    <th>Ticker</th>
+                    <th class="text-right" title="CCL Bid / CCL Mark">Bid / Mark</th>
+                    <th class="text-right">Gap (Bid)</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${cheapest.map(item => {
+                    const gapBid = marketData.globalAvgCCL ? ((item.CCL_bid / marketData.globalAvgCCL) - 1) * 100 : 0;
+                    const gapMark = marketData.globalAvgCCL ? ((item.CCL_mark / marketData.globalAvgCCL) - 1) * 100 : 0;
+                    return `
+                        <tr class="top-row">
+                            <td class="ticker-cell">${item.ticker_ar}</td>
+                            <td class="price-cell text-right" style="font-size: 0.75rem;">$${item.CCL_bid.toFixed(2)} / $${item.CCL_mark.toFixed(2)}</td>
+                            <td class="gap-cell text-right ${gapBid < 0 ? 'good-green' : 'bad-red'}">${gapBid > 0 ? '+' : ''}${gapBid.toFixed(2)}%</td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+    `;
 
-    cheapest.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'ccl-item good';
-        div.innerHTML = `
-            <span class="ticker">${item.ticker_ar}</span>
-            <span class="ccl-value">Bid: $${item.CCL_bid.toFixed(2)} | Mark: $${item.CCL_mark.toFixed(2)}</span>
-        `;
-        lowestContainer.appendChild(div);
-    });
-
-    expensive.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'ccl-item bad';
-        div.innerHTML = `
-            <span class="ticker">${item.ticker_ar}</span>
-            <span class="ccl-value">Mark: $${item.CCL_mark.toFixed(2)} | Ask: $${item.CCL_ask.toFixed(2)}</span>
-        `;
-        highestContainer.appendChild(div);
-    });
+    highestContainer.innerHTML = `
+        <table class="top-table">
+            <thead>
+                <tr>
+                    <th>Ticker</th>
+                    <th class="text-right" title="CCL Mark / CCL Ask">Mark / Ask</th>
+                    <th class="text-right">Gap (Ask)</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${expensive.map(item => {
+                    const gapAsk = marketData.globalAvgCCL ? ((item.CCL_ask / marketData.globalAvgCCL) - 1) * 100 : 0;
+                    return `
+                        <tr class="top-row">
+                            <td class="ticker-cell">${item.ticker_ar}</td>
+                            <td class="price-cell text-right" style="font-size: 0.75rem;">$${item.CCL_mark.toFixed(2)} / $${item.CCL_ask.toFixed(2)}</td>
+                            <td class="gap-cell text-right ${gapAsk > 0 ? 'bad-red' : 'good-green'}">${gapAsk > 0 ? '+' : ''}${gapAsk.toFixed(2)}%</td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+    `;
 }
 
 function renderApiTable() {

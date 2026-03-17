@@ -8,13 +8,15 @@ const CONFIG = {
         ARG_STOCKS: 'https://data912.com/live/arg_stocks',
         ARG_CEDEARS: 'https://data912.com/live/arg_cedears',
         USA_STOCKS: 'https://data912.com/live/usa_stocks',
-        USA_ADRS: 'https://data912.com/live/usa_adrs'
+        USA_ADRS: 'https://data912.com/live/usa_adrs',
+        CCL_API: 'https://data912.com/live/ccl'
     },
     MARKET_HOURS: {
         START: '10:20',
         END: '17:05',
         TIMEZONE: 'America/Argentina/Buenos_Aires'
-    }
+    },
+    SUMMARY_TICKERS: ['AAPL', 'AMZN', 'SPY', 'NVDA', 'KO', 'MSFT']
 };
 
 let marketData = {
@@ -29,6 +31,13 @@ let lastUpdateTime = null;
 let countdownInterval = null;
 let refreshTimeout = null;
 let currentFilter = 'all';
+let activeTab = 'cedear-usa';
+let cclApiData = [];
+let apiSearchTerm = '';
+let currentApiSort = {
+    column: 'CCL_mark',
+    direction: 'asc'
+};
 let currentSort = {
     column: 'ccl',
     direction: 'asc' // 'asc' or 'desc'
@@ -38,11 +47,35 @@ let currentSort = {
  * Initialization
  */
 document.addEventListener('DOMContentLoaded', () => {
+    initTabs();
     initFilters();
     initSearch();
     initSort();
     startApp();
 });
+
+function initTabs() {
+    const tabs = document.querySelectorAll('.nav-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            activeTab = tab.dataset.tab;
+            
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`tab-${activeTab}`).classList.add('active');
+            
+            // Re-render based on tab
+            if (activeTab === 'cedear-usa') {
+                renderAll();
+            } else {
+                renderApiAll();
+            }
+        });
+    });
+}
 
 function initFilters() {
     const filterBtns = document.querySelectorAll('.filter-btn');
@@ -58,29 +91,59 @@ function initFilters() {
 
 function initSearch() {
     const searchInput = document.getElementById('ticker-search');
-    searchInput.addEventListener('input', (e) => {
-        renderTable(e.target.value.toUpperCase());
-    });
+    const apiSearchInput = document.getElementById('api-ticker-search');
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            renderTable(e.target.value.toUpperCase());
+        });
+    }
+
+    if (apiSearchInput) {
+        apiSearchInput.addEventListener('input', (e) => {
+            apiSearchTerm = e.target.value.toUpperCase();
+            renderApiTable();
+        });
+    }
 }
 
 function initSort() {
-    const sortableHeaders = document.querySelectorAll('th.sortable');
-    sortableHeaders.forEach(header => {
+    const allSortableHeaders = document.querySelectorAll('th.sortable');
+    allSortableHeaders.forEach(header => {
         header.addEventListener('click', () => {
             const column = header.dataset.sort;
-            if (currentSort.column === column) {
-                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            const isApiTable = header.closest('#api-table') !== null;
+            
+            if (isApiTable) {
+                if (currentApiSort.column === column) {
+                    currentApiSort.direction = currentApiSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentApiSort.column = column;
+                    currentApiSort.direction = 'asc';
+                }
+                updateSortIndicators('api-table', currentApiSort);
+                renderApiTable();
             } else {
-                currentSort.column = column;
-                currentSort.direction = 'asc';
+                if (currentSort.column === column) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.column = column;
+                    currentSort.direction = 'asc';
+                }
+                updateSortIndicators('main-table', currentSort);
+                renderTable();
             }
-            
-            // Update UI indicators
-            sortableHeaders.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
-            header.classList.add(`sort-${currentSort.direction}`);
-            
-            renderTable();
         });
+    });
+}
+
+function updateSortIndicators(tableId, sortState) {
+    const headers = document.querySelectorAll(`#${tableId} th.sortable`);
+    headers.forEach(h => {
+        h.classList.remove('sort-asc', 'sort-desc');
+        if (h.dataset.sort === sortState.column) {
+            h.classList.add(`sort-${sortState.direction}`);
+        }
     });
 }
 
@@ -139,20 +202,23 @@ async function updateData() {
 
     try {
         // Parallel fetching for performance
-        const [argStocks, argCedears, usaStocks, usaAdrs] = await Promise.all([
+        const [argStocks, argCedears, usaStocks, usaAdrs, cclRawData] = await Promise.all([
             fetchData(CONFIG.ENDPOINTS.ARG_STOCKS),
             fetchData(CONFIG.ENDPOINTS.ARG_CEDEARS),
             fetchData(CONFIG.ENDPOINTS.USA_STOCKS),
-            fetchData(CONFIG.ENDPOINTS.USA_ADRS)
+            fetchData(CONFIG.ENDPOINTS.USA_ADRS),
+            fetchData(CONFIG.ENDPOINTS.CCL_API)
         ]);
 
         marketData.stocks = argStocks;
         marketData.cedears = argCedears;
         marketData.usaStocks = usaStocks;
         marketData.usaAdrs = usaAdrs;
+        cclApiData = cclRawData;
 
         processCalculations();
         renderAll();
+        renderApiAll();
         updateLastUpdateTime();
     } catch (error) {
         console.error("Error updating data:", error);
@@ -220,6 +286,7 @@ function processCalculations() {
  * Rendering Logic
  */
 function renderAll() {
+    renderSummaryTable();
     renderOpportunities();
     renderTable();
 }
@@ -322,4 +389,143 @@ function startCountdown() {
             updateData();
         }
     }, 1000);
+}
+
+/**
+ * CCL API Rendering
+ */
+function renderApiAll() {
+    renderSummaryTable();
+    renderApiOpportunities();
+    renderApiTable();
+}
+
+function renderSummaryTable() {
+    const body = document.getElementById('summary-table-body');
+    if (!body) return;
+    body.innerHTML = '';
+
+    let totalCedear = 0;
+    let totalApi = 0;
+    let countCedear = 0;
+    let countApi = 0;
+
+    CONFIG.SUMMARY_TICKERS.forEach(ticker => {
+        const tr = document.createElement('tr');
+        
+        // Data from Calculated (CEDEAR/USA)
+        const cedearData = marketData.calculatedResults.find(r => r.ticker === ticker);
+        const cclCedear = cedearData ? cedearData.ccl : null;
+        
+        // Data from API
+        const apiData = cclApiData.find(r => r.ticker_ar === ticker);
+        const cclApi = apiData ? apiData.CCL_mark : null;
+
+        if (cclCedear) {
+            totalCedear += cclCedear;
+            countCedear++;
+        }
+        if (cclApi) {
+            totalApi += cclApi;
+            countApi++;
+        }
+
+        tr.innerHTML = `
+            <td class="ticker-cell">${ticker}</td>
+            <td class="price-cell">${cclCedear ? '$' + cclCedear.toFixed(2) : '--'}</td>
+            <td class="price-cell">${cclApi ? '$' + cclApi.toFixed(2) : '--'}</td>
+        `;
+        body.appendChild(tr);
+    });
+
+    // Update Footer Averages
+    const avgCedearEl = document.getElementById('avg-cedear');
+    const avgApiEl = document.getElementById('avg-api');
+
+    if (countCedear > 0) {
+        avgCedearEl.textContent = '$' + (totalCedear / countCedear).toFixed(2);
+    } else {
+        avgCedearEl.textContent = '--';
+    }
+
+    if (countApi > 0) {
+        avgApiEl.textContent = '$' + (totalApi / countApi).toFixed(2);
+    } else {
+        avgApiEl.textContent = '--';
+    }
+}
+
+function renderApiOpportunities() {
+    if (!cclApiData || cclApiData.length === 0) return;
+
+    const cheaplySorted = [...cclApiData].sort((a, b) => a.CCL_bid - b.CCL_bid);
+    const expensivelySorted = [...cclApiData].sort((a, b) => b.CCL_mark - a.CCL_mark);
+    
+    const cheapest = cheaplySorted.slice(0, 10);
+    const expensive = expensivelySorted.slice(0, 10);
+
+    const lowestContainer = document.getElementById('api-lowest-ccl');
+    const highestContainer = document.getElementById('api-highest-ccl');
+    
+    if (!lowestContainer || !highestContainer) return;
+
+    lowestContainer.innerHTML = '';
+    highestContainer.innerHTML = '';
+
+    cheapest.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'ccl-item good';
+        div.innerHTML = `
+            <span class="ticker">${item.ticker_ar}</span>
+            <span class="ccl-value">Bid: $${item.CCL_bid.toFixed(2)} | Mark: $${item.CCL_mark.toFixed(2)}</span>
+        `;
+        lowestContainer.appendChild(div);
+    });
+
+    expensive.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'ccl-item bad';
+        div.innerHTML = `
+            <span class="ticker">${item.ticker_ar}</span>
+            <span class="ccl-value">Mark: $${item.CCL_mark.toFixed(2)} | Ask: $${item.CCL_ask.toFixed(2)}</span>
+        `;
+        highestContainer.appendChild(div);
+    });
+}
+
+function renderApiTable() {
+    const body = document.getElementById('api-table-body');
+    if (!body) return;
+    body.innerHTML = '';
+
+    let results = [...cclApiData];
+
+    // Apply Search
+    if (apiSearchTerm) {
+        results = results.filter(r => 
+            r.ticker_ar.toUpperCase().includes(apiSearchTerm) || 
+            r.ticker_usa.toUpperCase().includes(apiSearchTerm)
+        );
+    }
+
+    // Apply Sort
+    results.sort((a, b) => {
+        const valA = a[currentApiSort.column];
+        const valB = b[currentApiSort.column];
+        return currentApiSort.direction === 'asc' ? valA - valB : valB - valA;
+    });
+
+    results.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="ticker-cell">${item.ticker_ar}</td>
+            <td style="color: var(--text-secondary);">${item.ticker_usa}</td>
+            <td class="price-cell">$${item.CCL_bid.toFixed(2)}</td>
+            <td class="ccl-cell">$${item.CCL_mark.toFixed(2)}</td>
+            <td class="price-cell">$${item.CCL_ask.toFixed(2)}</td>
+            <td class="price-cell">$${item.ars_volume.toLocaleString()}</td>
+            <td style="font-size: 0.8rem; opacity: 0.7;">${item.arg_panel}/${item.usa_panel}</td>
+        `;
+        body.appendChild(tr);
+    });
 }

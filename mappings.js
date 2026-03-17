@@ -64,6 +64,7 @@ const mappings = {
         { local: "MSTR", usa: "MSTR", ratio: 20 }, // Mantenido, pero no figura explícitamente en el PDF analizado
         { local: "COIN", usa: "COIN", ratio: 27 },
         { local: "PLTR", usa: "PLTR", ratio: 3 },
+        { local: "SPY", usa: "SPY", ratio: 20 },
 
         // --- RESTO DE CEDEARS EXTRAÍDOS DEL PDF OFICIAL ---
         { local: "MMM", usa: "MMM", ratio: 10 },

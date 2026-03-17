@@ -1,13 +1,15 @@
 :root {
     --bg-color: #0f172a;
-    --card-bg: #1e293b;
-    --border-color: #334155;
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-    --accent-blue: #3b82f6;
-    --accent-cyan: #0ea5e9;
-    --accent-green: #22c55e;
-    --accent-red: #ef4444;
+    --card-bg: #1a1a1a;
+    --border-color: #2e2e2e;
+    --text-primary: #ffffff;
+    --text-secondary: #a0a0a0;
+    --accent-cyan: #00d2ff;
+    --accent-purple: #9d50bb;
+    --accent-gold: #f7971e;
+    --good-green: #00f260;
+    --bad-red: #f82449;
+    --summary-bg: #222222;
     --accent-yellow: #eab308;
     --font-main: 'Inter', sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
@@ -29,9 +31,115 @@ body {
 
 /* Header */
 header {
-    padding: 1.5rem 5%;
+    padding: 1.5rem 5% 0.5rem;
     background: var(--card-bg);
     border-bottom: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.tab-navigation {
+    display: flex;
+    gap: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.nav-tab {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-family: var(--font-main);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.5rem 0;
+    cursor: pointer;
+    position: relative;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: color 0.2s;
+}
+
+.nav-tab:hover {
+    color: var(--text-primary);
+}
+
+.nav-tab.active {
+    color: var(--accent-cyan);
+}
+
+.nav-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -0.5rem;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--accent-cyan);
+}
+
+.tab-content {
+    display: none;
+    flex-direction: column;
+    gap: 2.5rem;
+}
+
+.tab-content.active {
+    display: flex;
+}
+
+/* Global Summary Table */
+.summary-container {
+    max-width: 1400px;
+    margin: 1.5rem auto 0;
+    padding: 0 5%;
+}
+
+.summary-section {
+    background: var(--summary-bg);
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+.summary-table-wrapper {
+    overflow-x: auto;
+}
+
+#summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+#summary-table th {
+    text-align: left;
+    color: var(--text-secondary);
+    font-weight: 500;
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+#summary-table td {
+    padding: 0.6rem 0.5rem;
+}
+
+#summary-table .avg-label {
+    font-weight: 700;
+    color: var(--accent-cyan);
+}
+
+#summary-table .avg-value {
+    font-weight: 700;
+    color: var(--text-primary);
+    border-top: 2px solid var(--border-color);
+}
+
+#summary-table .ticker-cell {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
 }
 
 .header-content {

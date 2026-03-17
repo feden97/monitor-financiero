@@ -30,9 +30,41 @@
                 </div>
             </div>
         </div>
+        <nav class="tab-navigation">
+            <button class="nav-tab active" data-tab="cedear-usa">CCL CEDEAR/USA</button>
+            <button class="nav-tab" data-tab="ccl-api">CCL API</button>
+        </nav>
     </header>
 
+    <div class="summary-container">
+        <section id="global-summary" class="summary-section">
+            <div class="summary-table-wrapper">
+                <table id="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Ticker</th>
+                            <th>CCL (CEDEAR)</th>
+                            <th>CCL (API)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="summary-table-body">
+                        <!-- Data will be injected here -->
+                    </tbody>
+                    <tfoot>
+                        <tr id="summary-table-footer">
+                            <td class="avg-label">Average</td>
+                            <td id="avg-cedear" class="avg-value">--</td>
+                            <td id="avg-api" class="avg-value">--</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </section>
+    </div>
+
     <main>
+        <!-- Tab 1: CCL CEDEAR/USA (Original) -->
+        <div id="tab-cedear-usa" class="tab-content active">
         <section id="opportunities" class="opportunities-section">
             <div class="section-header">
                 <h2>Top Opportunities</h2>
@@ -87,6 +119,61 @@
                 </table>
             </div>
         </section>
+        </div>
+
+        <!-- Tab 2: CCL API (New) -->
+        <div id="tab-ccl-api" class="tab-content">
+            <section id="ccl-api-opportunities" class="opportunities-section">
+                <div class="section-header">
+                    <h2>CCL API Opportunities</h2>
+                    <div class="legend">
+                        <span class="bad">High CCL (Ask/Mark)</span>
+                        <span class="good">Low CCL (Bid/Mark)</span>
+                    </div>
+                </div>
+                <div class="opportunities-grid">
+                    <div class="card">
+                        <h3>Cheapest CCL (Bid | Mark)</h3>
+                        <div id="api-lowest-ccl" class="ccl-list">
+                            <div class="loading-spinner"></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Most Expensive CCL (Mark | Ask)</h3>
+                        <div id="api-highest-ccl" class="ccl-list">
+                            <div class="loading-spinner"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="ccl-api-explorer" class="explorer-section">
+                <div class="section-header">
+                    <h2>CCL API Explorer</h2>
+                    <div class="table-controls">
+                        <input type="text" id="api-ticker-search" placeholder="Search ticker...">
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="api-table">
+                        <thead>
+                            <tr>
+                                <th>Ticker (AR)</th>
+                                <th>Ticker (USA)</th>
+                                <th class="sortable" data-sort="CCL_bid">CCL Bid</th>
+                                <th class="sortable" data-sort="CCL_mark">CCL Mark</th>
+                                <th class="sortable" data-sort="CCL_ask">CCL Ask</th>
+                                <th class="sortable" data-sort="ars_volume">Volume (ARS)</th>
+                                <th>Panel</th>
+                            </tr>
+                        </thead>
+                        <tbody id="api-table-body">
+                            <!-- Data will be injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
     </main>
 
     <footer>
